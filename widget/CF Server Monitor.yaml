@@ -67,6 +67,8 @@ scriptings:
       name: "CF Server Monitor"
       script_url: "https://raw.githubusercontent.com/its-rory/Egern-widget/refs/heads/main/widget/cf_server_monitor.js"
       timeout: 20
+      # 脚本缓存 1 小时（默认 86400 = 24 小时，改完脚本要等一天才生效）
+      update_interval: 3600
 
 widgets:
   # 默认单机组件：按 SERVER_ID 选服务器（留空 = 第一台）
