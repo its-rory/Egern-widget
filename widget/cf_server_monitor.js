@@ -446,7 +446,15 @@ function matchServerFromList(servers, target) {
   );
   if (found) return found;
 
-  // 3. 模糊包含匹配 name 或 id
+  // 3. 纯数字按序号取（必须放在模糊匹配之前：否则 "1" 会命中 "HK-01" 这类名字）
+  if (/^\d+$/.test(clean)) {
+    const idx = parseInt(clean, 10);
+    if (idx >= 1 && idx <= servers.length) return servers[idx - 1];
+    if (idx === 0) return servers[0];
+    return null;
+  }
+
+  // 4. 模糊包含匹配 name 或 id
   found = servers.find(
     (s) =>
       String(s?.name || "").toLowerCase().includes(lower) ||
@@ -454,14 +462,85 @@ function matchServerFromList(servers, target) {
   );
   if (found) return found;
 
-  // 4. 数字序号匹配（如填 1 代表第 1 台服务器）
-  if (/^\d+$/.test(clean)) {
-    const idx = parseInt(clean, 10);
-    if (idx >= 1 && idx <= servers.length) return servers[idx - 1];
-    if (idx === 0 && servers.length > 0) return servers[0];
+  return null;
+}
+
+// ====================================
+// 多服务器总览布局（MODE=all）
+// ====================================
+function buildOverviewRow(server, isLarge) {
+  const online = isOnline(server);
+  const cpu = Math.round(clampPercent(server.cpu));
+  const ram = Math.round(clampPercent(percent(server.ram_used, server.ram_total)));
+  const disk = Math.round(clampPercent(percent(server.disk_used, server.disk_total)));
+  return mkRow([
+    mkText(online ? "●" : "○", isLarge ? 9 : 8, "bold", online ? COL.green : COL.dim2, { maxLines: 1 }),
+    mkSpacer(5),
+    mkText(serverName(server), isLarge ? 13 : 11, "semibold", online ? COL.fg : COL.dim, {
+      maxLines: 1,
+      minScale: 0.7,
+      flex: 1
+    }),
+    mkSpacer(6),
+    mkText(`CPU ${cpu}%`, isLarge ? 9 : 8, "regular", COL.dim2, { maxLines: 1 }),
+    mkSpacer(6),
+    mkText(`RAM ${ram}%`, isLarge ? 9 : 8, "regular", COL.dim2, { maxLines: 1 }),
+    mkSpacer(6),
+    mkText(`DSK ${disk}%`, isLarge ? 9 : 8, "regular", COL.dim2, { maxLines: 1 })
+  ]);
+}
+
+function buildOverviewChildren(servers, isLarge) {
+  const maxRows = isLarge ? 9 : 4;
+  const rows = servers.slice(0, maxRows);
+  const onlineCount = servers.filter(isOnline).length;
+  const allOnline = onlineCount === servers.length;
+
+  const children = [
+    mkRow([
+      mkText("CF Server Monitor", isLarge ? 14 : 13, "bold", COL.fg, { maxLines: 1, minScale: 0.7, flex: 1 }),
+      mkText(`${onlineCount}/${servers.length} 在线`, isLarge ? 10 : 9, "semibold", allOnline ? COL.green : COL.amber, {
+        maxLines: 1
+      })
+    ]),
+    mkSpacer(isLarge ? 9 : 5)
+  ];
+
+  rows.forEach((server, i) => {
+    children.push(buildOverviewRow(server, isLarge));
+    if (i < rows.length - 1) children.push(mkSpacer(isLarge ? 9 : 5));
+  });
+
+  if (servers.length > maxRows) {
+    children.push(mkSpacer(4), mkText(`另有 ${servers.length - maxRows} 台未显示`, 8, "regular", COL.dim2, { maxLines: 1 }));
   }
 
-  return null;
+  children.push(
+    mkSpacer(),
+    mkRow([mkSpacer(), mkText(`Updated ${hhmm()}`, 8, "regular", COL.dim2, { maxLines: 1 }), mkSpacer()])
+  );
+
+  return children;
+}
+
+function buildOverviewLockScreen(servers) {
+  const onlineCount = servers.filter(isOnline).length;
+  const brief = servers
+    .slice(0, 3)
+    .map((s) => `${isOnline(s) ? "●" : "○"}${serverName(s)}`)
+    .join("  ");
+  return {
+    type: "widget",
+    children: [
+      mkRow([
+        mkText("CF", 12, "bold", null),
+        mkSpacer(5),
+        mkText(`${onlineCount}/${servers.length} 在线`, 12, "semibold", null, { maxLines: 1 })
+      ]),
+      mkSpacer(2),
+      mkRow([mkText(brief, 10, "regular", null, { maxLines: 1, minScale: 0.7 })])
+    ]
+  };
 }
 
 async function tryLogin(ctx, baseURL, username, password) {
@@ -494,21 +573,19 @@ async function tryLogin(ctx, baseURL, username, password) {
   return { error: lastErr };
 }
 
-async function fetchServerSmart(ctx, baseURL, targetServer, authConfig) {
-  const makeHeaders = (token) => {
-    const h = { Accept: "application/json" };
-    if (token) {
-      h.Authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
-    }
-    return h;
-  };
+function makeAuthHeaders(token) {
+  const headers = { Accept: "application/json" };
+  if (token) {
+    headers.Authorization = token.startsWith("Bearer ") ? token : `Bearer ${token}`;
+  }
+  return headers;
+}
 
-  let token = authConfig.apiToken || "";
-
-  // 第一步：尝试通过 /api/servers 获取列表（支持直接用服务器名称如 CloudCone 匹配）
+// 拉取面板服务器列表：私有站点自动登录换 Token，必要时回退管理端接口（含 is_hidden 服务器）
+async function fetchServerList(ctx, baseURL, authConfig) {
   const tryFetchList = async (jwt) => {
     const resp = await ctx.http.get(`${baseURL}/api/servers`, {
-      headers: makeHeaders(jwt),
+      headers: makeAuthHeaders(jwt),
       timeout: 12000
     });
     const text = await resp.text();
@@ -526,55 +603,78 @@ async function fetchServerSmart(ctx, baseURL, targetServer, authConfig) {
     return { status: resp.status, error: data?.error || "未获取到服务器列表" };
   };
 
-  // 先尝试公开访问（或携带已有 API_TOKEN）
+  let token = authConfig.apiToken || "";
   let listRes = await tryFetchList(token);
 
-  // 若返回 401（站点为私有站点）且配置了密码，则自动登录换取 Token
   if (listRes.unauthorized && !token && authConfig.password) {
     const loginRes = await tryLogin(ctx, baseURL, authConfig.username, authConfig.password);
-    if (loginRes.token) {
-      token = loginRes.token;
-      listRes = await tryFetchList(token);
-    } else {
-      throw new Error(`私有站点登录失败 (${loginRes.error})`);
-    }
+    if (!loginRes.token) throw new Error(`私有站点登录失败 (${loginRes.error})`);
+    token = loginRes.token;
+    listRes = await tryFetchList(token);
   } else if (listRes.unauthorized && !token) {
     throw new Error("面板已开启私有访问 (401)，请在环境变量中填写 PASSWORD 或 API_TOKEN");
   }
 
-  let availableNames = [];
-  if (listRes.servers && listRes.servers.length > 0) {
-    const matched = matchServerFromList(listRes.servers, targetServer);
-    if (matched) return matched;
-    availableNames = listRes.servers.map((s) => s.name || s.id).filter(Boolean);
+  let servers = listRes.servers || [];
+
+  // 公开列表为空（例如服务器都被设为 is_hidden=1）时，用管理端 list 兜底
+  if (!servers.length) {
+    if (!token && authConfig.password) {
+      const loginRes = await tryLogin(ctx, baseURL, authConfig.username, authConfig.password);
+      if (loginRes.token) token = loginRes.token;
+    }
+    if (token) {
+      try {
+        const adminResp = await ctx.http.post(`${baseURL}/admin/api`, {
+          headers: { ...makeAuthHeaders(token), "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "list", refresh: false }),
+          timeout: 12000
+        });
+        const adminData = JSON.parse(await adminResp.text());
+        if (Array.isArray(adminData?.servers)) servers = adminData.servers;
+      } catch (_) {}
+    }
   }
 
-  // 第二步：若公开列表未找到（例如该服务器被设为隐藏 is_hidden=1）且有密码/Token，尝试管理端 list 接口
-  if (!token && authConfig.password) {
-    const loginRes = await tryLogin(ctx, baseURL, authConfig.username, authConfig.password);
-    if (loginRes.token) token = loginRes.token;
+  return { servers, token, error: listRes.error };
+}
+
+async function fetchServerSmart(ctx, baseURL, targetServer, authConfig) {
+  const { servers, token, error } = await fetchServerList(ctx, baseURL, authConfig);
+
+  if (servers.length) {
+    const matched = matchServerFromList(servers, targetServer);
+    if (matched) return matched;
   }
-  if (token) {
+
+  // 列表里没有，可能是被隐藏的服务器：用管理端完整列表再匹配一次
+  let allServers = servers;
+  let adminToken = token;
+  if (!adminToken && authConfig.password) {
+    const loginRes = await tryLogin(ctx, baseURL, authConfig.username, authConfig.password);
+    if (loginRes.token) adminToken = loginRes.token;
+  }
+  if (adminToken && servers.length) {
     try {
       const adminResp = await ctx.http.post(`${baseURL}/admin/api`, {
-        headers: { ...makeHeaders(token), "Content-Type": "application/json" },
+        headers: { ...makeAuthHeaders(adminToken), "Content-Type": "application/json" },
         body: JSON.stringify({ action: "list", refresh: false }),
         timeout: 12000
       });
       const adminData = JSON.parse(await adminResp.text());
       if (Array.isArray(adminData?.servers) && adminData.servers.length > 0) {
-        const matched = matchServerFromList(adminData.servers, targetServer);
+        allServers = adminData.servers;
+        const matched = matchServerFromList(allServers, targetServer);
         if (matched) return matched;
-        availableNames = adminData.servers.map((s) => s.name || s.id).filter(Boolean);
       }
     } catch (_) {}
   }
 
-  // 第三步：直接按 ID 请求 /api/server?id=...
-  if (targetServer && targetServer.toLowerCase() !== "your-server-id") {
+  // 拿不到列表时，退化为直接按 ID 请求详情接口
+  if (!allServers.length && targetServer && targetServer.toLowerCase() !== "your-server-id") {
     const resp = await ctx.http.get(
       `${baseURL}/api/server?id=${encodeURIComponent(targetServer)}`,
-      { headers: makeHeaders(token), timeout: 12000 }
+      { headers: makeAuthHeaders(adminToken), timeout: 12000 }
     );
     const text = await resp.text();
     let data;
@@ -588,24 +688,60 @@ async function fetchServerSmart(ctx, baseURL, targetServer, authConfig) {
     }
   }
 
-  if (availableNames.length > 0) {
+  if (/^\d+$/.test(String(targetServer || "").trim()) && allServers.length) {
+    throw new Error(`第 ${targetServer} 台服务器不存在，当前面板共 ${allServers.length} 台`);
+  }
+
+  if (allServers.length) {
+    const names = allServers.map((s) => s.name || s.id).filter(Boolean);
     throw new Error(
-      `未找到 "${targetServer}"，当前可用: ${availableNames.slice(0, 4).join(", ")}`
+      `未找到 "${targetServer}"，当前可用: ${names.slice(0, 4).join(", ")}${names.length > 4 ? " 等" : ""}`
     );
   }
-  throw new Error(listRes.error || `未找到服务器 "${targetServer}"`);
+
+  throw new Error(error || `未找到服务器 "${targetServer}"`);
+}
+
+// 总览模式：必须拿到列表
+async function fetchServersForOverview(ctx, baseURL, authConfig) {
+  const { servers, error } = await fetchServerList(ctx, baseURL, authConfig);
+  if (!servers.length) {
+    throw new Error(error || "未获取到服务器列表");
+  }
+  return servers;
+}
+
+function buildWidgetFrame(children, isSmall, baseURL) {
+  const padding = isSmall ? [12, 13, 10, 13] : [14, 15, 12, 15];
+  return {
+    type: "widget",
+    padding,
+    ...(baseURL ? { url: baseURL } : {}),
+    backgroundColor: COL.bg1,
+    backgroundGradient: BG_GRADIENT,
+    refreshAfter: new Date(Date.now() + 60 * 1000).toISOString(),
+    children
+  };
 }
 
 export default async function (ctx) {
   const env = ctx.env || {};
   const rawBaseURL = getEnv(env, ["BASE_URL", "API_URL", "baseURL"], "");
   const baseURL = String(rawBaseURL || "").replace(/\/+$/, "");
+
+  // 多服务器：模块为每个小组件定义写入 SLOT，配套的 SERVER_<SLOT> 决定显示哪台服务器
+  // 未配置 SERVER_<SLOT> 时，直接用槽位序号取第 n 台（按面板 sort_order 排序）
+  const slot = getEnv(env, ["SLOT"], "");
+  const slotTarget = slot ? getEnv(env, [`SERVER_${slot}`], "") : "";
   const serverId = normalizeServerId(
-    getEnv(env, ["SERVER_ID", "ID", "serverId", "SERVER_NAME"], "")
+    slot ? slotTarget || slot : getEnv(env, ["SERVER_ID", "ID", "serverId", "SERVER_NAME"], "")
   );
+
   const apiToken = getEnv(env, ["API_TOKEN", "TOKEN", "JWT"], "");
   const password = getEnv(env, ["PASSWORD", "API_SECRET", "SECRET"], "");
   const username = getEnv(env, ["USERNAME", "USER"], "admin");
+  const mode = getEnv(env, ["MODE", "DISPLAY_MODE"], "").toLowerCase();
+  const isOverview = mode === "all" || mode === "list" || mode === "overview";
 
   if (isPlaceholderUrl(baseURL)) {
     return buildErrorWidget(
@@ -614,33 +750,34 @@ export default async function (ctx) {
     );
   }
 
+  const family = String(ctx.widgetFamily || "systemMedium").toLowerCase();
+  const isSmall = family.includes("small");
+
   try {
-    const server = await fetchServerSmart(ctx, baseURL, serverId, {
-      apiToken,
-      password,
-      username
-    });
-    const family = String(ctx.widgetFamily || "systemMedium").toLowerCase();
+    const authConfig = { apiToken, password, username };
+
+    // 总览模式：一个小组件里同时显示多台
+    if (isOverview) {
+      const servers = await fetchServersForOverview(ctx, baseURL, authConfig);
+      if (family.includes("accessory")) return buildOverviewLockScreen(servers);
+      if (isSmall) {
+        // 小尺寸塞不下列表，退化成第一台的单机布局
+        return buildWidgetFrame(buildSmallChildren(servers[0]), true, baseURL);
+      }
+      return buildWidgetFrame(buildOverviewChildren(servers, family.includes("large")), false, baseURL);
+    }
+
+    const server = await fetchServerSmart(ctx, baseURL, serverId, authConfig);
 
     if (family.includes("accessory")) {
       return buildLockScreenWidget(server);
     }
 
-    const isSmall = family.includes("small");
-    const isLarge = family.includes("large");
-    const padding = isSmall ? [12, 13, 10, 13] : [14, 15, 12, 15];
-
-    return {
-      type: "widget",
-      padding,
-      url: baseURL,
-      backgroundColor: COL.bg1,
-      backgroundGradient: BG_GRADIENT,
-      refreshAfter: new Date(Date.now() + 60 * 1000).toISOString(),
-      children: isSmall
-        ? buildSmallChildren(server)
-        : buildMediumLargeChildren(server, isLarge)
-    };
+    return buildWidgetFrame(
+      isSmall ? buildSmallChildren(server) : buildMediumLargeChildren(server, family.includes("large")),
+      isSmall,
+      baseURL
+    );
   } catch (e) {
     return buildErrorWidget(e?.message || String(e), baseURL);
   }
