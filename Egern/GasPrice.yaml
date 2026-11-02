@@ -12,10 +12,15 @@ auto_update:
   interval: 43200
 
 env_schema:
-  GAS_REGION:
-    name: 📍 油价查询地区
-    description: "直辖市输入拼音，其他省份输入省份/省会拼音"
-    default_value: "jiangsu/nanjing"
+  PROVINCE:
+    name: 📍 省份名称
+    description: "输入中文省份名称（如：江苏）或省份代码（如：32）"
+    default_value: "江苏"
+  CITY:
+    name: 🏙️ 城市名称
+    description: "输入中文城市名称（如：南京、苏州）"
+    default_value: "南京"
+
 
 scriptings:
   - generic:
