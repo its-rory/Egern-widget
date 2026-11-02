@@ -6,7 +6,10 @@
 # ====================================
 
 name: "CF Server Monitor"
-description: "CF-Server-Monitor 探针状态监控小组件。安装后请点进模块设置填写面板地址与服务器 ID。"
+description: "CF-Server-Monitor 探针状态监控小组件。支持直接填写服务器名称（如 CloudCone）或 UUID。"
+
+auto_update:
+  interval: 3600
 
 env_schema:
   BASE_URL:
@@ -14,16 +17,16 @@ env_schema:
     description: "在 Egern 本地填写你的 CF-Server-Monitor 域名（末尾无需斜杠）"
     default_value: "https://status.example.com"
   SERVER_ID:
-    name: 🖥️ 服务器 ID (必填)
-    description: "在 Egern 本地填写要监控的服务器 UUID 或 ID（如 hk-01 或 id:hk-01）"
-    default_value: "your-server-id"
+    name: 🖥️ 服务器名称或 ID (必填)
+    description: "支持直接填写服务器名称（如 CloudCone）、UUID，或填 1 自动取第 1 台服务器"
+    default_value: "CloudCone"
   PASSWORD:
     name: 🔑 私有站点密码 / API_SECRET (可选)
-    description: "若面板关闭了公开访问（私有站点），在此填入后台登录密码或 API_SECRET，公开站点留空即可"
+    description: "若面板关闭了公开访问或隐藏了服务器，填入后台密码或 API_SECRET；公开站点留空即可"
     default_value: ""
   USERNAME:
     name: 👤 私有站点用户名 (可选)
-    description: "私有站点后台管理员用户名，未修改过保持默认 admin 即可"
+    description: "私有站点后台管理员用户名，未修改过请保持默认 admin"
     default_value: "admin"
   API_TOKEN:
     name: 🎫 私有站点 JWT Token (可选)
@@ -32,10 +35,10 @@ env_schema:
 
 scriptings:
   - generic:
-      name: "CF-Server-Monitor"
+      name: "CF Server Monitor"
       script_url: "https://raw.githubusercontent.com/its-rory/Egern-widget/refs/heads/main/widget/CF-Server-Monitor.js"
       timeout: 20
 
 widgets:
   - name: "CF Server Monitor"
-    script_name: "CF-Server-Monitor"
+    script_name: "CF Server Monitor"
