@@ -1,7 +1,8 @@
 # ====================================
 # 📌 模块名称: CF Server Monitor 小组件（公开模板）
 # ✨ 主要功能: 实时监控服务器在线状态、CPU/内存/硬盘占用、月度流量进度及实时上下行速率
-# 🔀 多服务器: 「CF 服务器 1~6」每个组件绑一台（由 SERVER_1~6 指定），「CF 全部服务器」一个大组件列出多台
+# 🔀 多服务器: 默认组件 = 槽位 1，另有「CF 服务器 2/3」；「CF 全部服务器」一个大组件列出多台
+# 🧩 槽位数量: 由 widgets 列表决定（当前 1/2/3），加槽位 = 复制一段并把 SLOT 改成新编号
 # 🔒 隐私安全: 本文件不含任何私人域名、服务器 ID 或密钥，所有隐私参数均在 Egern App 内填写，仅保存在本地设备
 # ⚠️ 注意: env_schema 的 default_value 只是输入框占位提示，不会自动写入 env，必须在模块设置里手动填写
 # 📖 适配文档: https://egernapp.com/docs/configuration/widgets/
@@ -21,33 +22,17 @@ env_schema:
     name: 🌐 监控面板地址 (必填)
     description: "在 Egern 本地填写你的 CF-Server-Monitor 域名（末尾无需斜杠）"
     default_value: "https://status.example.com"
-  SERVER_ID:
-    name: 🖥️ 服务器名称或 ID (默认组件用)
-    description: "支持直接填写服务器名称（如 CloudCone）、UUID，或填 1 自动取第 1 台服务器"
-    default_value: "CloudCone"
   SERVER_1:
-    name: 🧩 槽位 1 的服务器
-    description: "「CF 服务器 1」小组件显示哪台：填服务器名称（如 CloudCone）或 UUID；留空则按面板顺序取第 1 台"
-    default_value: ""
+    name: 🖥️ 槽位 1（默认组件）的服务器
+    description: "「CF Server Monitor」显示哪台：填名称（如 CloudCone）或 UUID；留空则按面板顺序取第 1 台"
+    default_value: "CloudCone"
   SERVER_2:
     name: 🧩 槽位 2 的服务器
-    description: "「CF 服务器 2」小组件显示哪台：填服务器名称或 UUID；留空则取第 2 台"
+    description: "「CF 服务器 2」显示哪台：填名称或 UUID；留空则取第 2 台"
     default_value: ""
   SERVER_3:
     name: 🧩 槽位 3 的服务器
-    description: "「CF 服务器 3」小组件显示哪台：填服务器名称或 UUID；留空则取第 3 台"
-    default_value: ""
-  SERVER_4:
-    name: 🧩 槽位 4 的服务器
-    description: "「CF 服务器 4」小组件显示哪台：填服务器名称或 UUID；留空则取第 4 台"
-    default_value: ""
-  SERVER_5:
-    name: 🧩 槽位 5 的服务器
-    description: "「CF 服务器 5」小组件显示哪台：填服务器名称或 UUID；留空则取第 5 台"
-    default_value: ""
-  SERVER_6:
-    name: 🧩 槽位 6 的服务器
-    description: "「CF 服务器 6」小组件显示哪台：填服务器名称或 UUID；留空则取第 6 台"
+    description: "「CF 服务器 3」显示哪台：填名称或 UUID；留空则取第 3 台"
     default_value: ""
   PASSWORD:
     name: 🔑 私有站点密码 / API_SECRET (可选)
@@ -71,16 +56,14 @@ scriptings:
       update_interval: 3600
 
 widgets:
-  # 默认单机组件：按 SERVER_ID 选服务器（留空 = 第一台）
+  # ── 槽位 1：默认组件本身就算第 1 个槽位 ──
   - name: "CF Server Monitor"
-    script_name: "CF Server Monitor"
-
-  # 多服务器：每个槽位一个组件，桌面加几个就能同时看几台。
-  # 具体显示哪台由模块设置里的 SERVER_1 ... SERVER_6 决定，留空则按面板顺序取对应序号。
-  - name: "CF 服务器 1"
     script_name: "CF Server Monitor"
     env:
       SLOT: "1"
+
+  # ── 槽位 2、3：想在桌面同时看更多服务器就各加一个 ──
+  # 加槽位的方法：复制下面任意一段，把 SLOT 改成新编号，并在 env_schema 里补一个 SERVER_<编号>
   - name: "CF 服务器 2"
     script_name: "CF Server Monitor"
     env:
@@ -89,20 +72,8 @@ widgets:
     script_name: "CF Server Monitor"
     env:
       SLOT: "3"
-  - name: "CF 服务器 4"
-    script_name: "CF Server Monitor"
-    env:
-      SLOT: "4"
-  - name: "CF 服务器 5"
-    script_name: "CF Server Monitor"
-    env:
-      SLOT: "5"
-  - name: "CF 服务器 6"
-    script_name: "CF Server Monitor"
-    env:
-      SLOT: "6"
 
-  # 总览：一个组件里列出多台（大尺寸最多 7 台，中尺寸 3 台）
+  # ── 总览：一个组件里列出多台（大尺寸最多 9 台，中尺寸 4 台）──
   - name: "CF 全部服务器"
     script_name: "CF Server Monitor"
     env:
