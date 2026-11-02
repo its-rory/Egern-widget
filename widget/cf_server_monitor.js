@@ -36,6 +36,9 @@ const BG_GRADIENT = {
   colors: [COL.bg1, COL.bg2]
 };
 
+// iOS 实际预算约 15–60 分钟/次，请求过密不会被满足，这里按 30 分钟一档
+const REFRESH_AFTER_MS = 30 * 60 * 1000;
+
 function getEnv(env, keys, fallback = "") {
   for (const key of keys) {
     const val = env?.[key];
@@ -404,7 +407,7 @@ function buildErrorWidget(message, baseURL) {
     ...(baseURL ? { url: baseURL } : {}),
     backgroundColor: COL.bg1,
     backgroundGradient: BG_GRADIENT,
-    refreshAfter: new Date(Date.now() + 60 * 1000).toISOString(),
+    refreshAfter: new Date(Date.now() + REFRESH_AFTER_MS).toISOString(),
     children: [
       mkRow([
         mkText("⚠️ ", 12, "bold", COL.red),
@@ -719,7 +722,7 @@ function buildWidgetFrame(children, isSmall, baseURL) {
     ...(baseURL ? { url: baseURL } : {}),
     backgroundColor: COL.bg1,
     backgroundGradient: BG_GRADIENT,
-    refreshAfter: new Date(Date.now() + 60 * 1000).toISOString(),
+    refreshAfter: new Date(Date.now() + REFRESH_AFTER_MS).toISOString(),
     children
   };
 }
