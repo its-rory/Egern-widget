@@ -1,0 +1,41 @@
+# ====================================
+# 📌 模块名称: CF Server Monitor 小组件（公开模板）
+# ✨ 主要功能: 实时监控服务器在线状态、CPU/内存/硬盘占用、月度流量进度及实时上下行速率
+# 🔒 隐私安全: 本文件不含任何私人域名、服务器 ID 或密钥，所有隐私参数均在 Egern App 内填写，仅保存在本地设备
+# 📖 适配文档: https://egernapp.com/docs/configuration/widgets/
+# ====================================
+
+name: "CF Server Monitor"
+description: "CF-Server-Monitor 探针状态监控小组件。安装后请点进模块设置填写面板地址与服务器 ID。"
+
+env_schema:
+  BASE_URL:
+    name: 🌐 监控面板地址 (必填)
+    description: "在 Egern 本地填写你的 CF-Server-Monitor 域名（末尾无需斜杠）"
+    default_value: "https://status.example.com"
+  SERVER_ID:
+    name: 🖥️ 服务器 ID (必填)
+    description: "在 Egern 本地填写要监控的服务器 UUID 或 ID（如 hk-01 或 id:hk-01）"
+    default_value: "your-server-id"
+  PASSWORD:
+    name: 🔑 私有站点密码 / API_SECRET (可选)
+    description: "若面板关闭了公开访问（私有站点），在此填入后台登录密码或 API_SECRET，公开站点留空即可"
+    default_value: ""
+  USERNAME:
+    name: 👤 私有站点用户名 (可选)
+    description: "私有站点后台管理员用户名，未修改过保持默认 admin 即可"
+    default_value: "admin"
+  API_TOKEN:
+    name: 🎫 私有站点 JWT Token (可选)
+    description: "若不想填密码，也可直接填入 Bearer JWT Token（优先级高于密码）"
+    default_value: ""
+
+scriptings:
+  - generic:
+      name: "CF-Server-Monitor"
+      script_url: "https://raw.githubusercontent.com/its-rory/Egern-widget/refs/heads/main/widget/CF-Server-Monitor.js"
+      timeout: 20
+
+widgets:
+  - name: "CF Server Monitor"
+    script_name: "CF-Server-Monitor"
