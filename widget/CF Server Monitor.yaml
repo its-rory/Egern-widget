@@ -2,14 +2,18 @@
 # 📌 模块名称: CF Server Monitor 小组件（公开模板）
 # ✨ 主要功能: 实时监控服务器在线状态、CPU/内存/硬盘占用、月度流量进度及实时上下行速率
 # 🔒 隐私安全: 本文件不含任何私人域名、服务器 ID 或密钥，所有隐私参数均在 Egern App 内填写，仅保存在本地设备
+# ⚠️ 注意: env_schema 的 default_value 只是输入框占位提示，不会自动写入 env，必须在模块设置里手动填写
 # 📖 适配文档: https://egernapp.com/docs/configuration/widgets/
 # ====================================
 
 name: "CF Server Monitor"
 description: "CF-Server-Monitor 探针状态监控小组件。支持直接填写服务器名称（如 CloudCone）或 UUID。"
 
-auto_update:
-  interval: 3600
+# 说明：模块文件的自动更新周期不在这里配置。auto_update 只属于 Profile.yaml；
+# 模块更新周期请写在引用该模块的 modules 配置中，例如：
+#   modules:
+#     - url: "https://raw.githubusercontent.com/its-rory/Egern-widget/refs/heads/main/widget/CF%20Server%20Monitor.yaml"
+#       update_interval: 3600
 
 env_schema:
   BASE_URL:
@@ -36,7 +40,7 @@ env_schema:
 scriptings:
   - generic:
       name: "CF Server Monitor"
-      script_url: "https://raw.githubusercontent.com/its-rory/Egern-widget/refs/heads/main/widget/CF-Server-Monitor.js"
+      script_url: "https://raw.githubusercontent.com/its-rory/Egern-widget/refs/heads/main/widget/cf_server_monitor.js"
       timeout: 20
 
 widgets:

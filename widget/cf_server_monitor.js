@@ -27,17 +27,13 @@ const COL = {
   track: "#262c36"
 };
 
+// 仅使用官方文档中定义的 Gradient 字段：type / colors / stops / startPoint / endPoint
 const BG_GRADIENT = {
   type: "linear",
-  start: [0, 0],
-  end: [0, 1],
   startPoint: { x: 0, y: 0 },
   endPoint: { x: 0, y: 1 },
   stops: [0, 1],
-  colors: [
-    { light: COL.bg1, dark: COL.bg1 },
-    { light: COL.bg2, dark: COL.bg2 }
-  ]
+  colors: [COL.bg1, COL.bg2]
 };
 
 function getEnv(env, keys, fallback = "") {
@@ -163,7 +159,8 @@ function mkText(text, size, weight, color, opts = {}) {
     type: "text",
     text: String(text ?? ""),
     font: { size, weight: weight || "regular", ...(opts.family ? { family: opts.family } : {}) },
-    textColor: color,
+    // color 为空时不写 textColor，交给系统默认前景色（锁屏 accessory 组件必须这样才不会被 vibrancy 冲淡）
+    ...(color ? { textColor: color } : {}),
     ...(opts.maxLines ? { maxLines: opts.maxLines } : {}),
     ...(opts.minScale ? { minScale: opts.minScale } : {}),
     ...(opts.textAlign ? { textAlign: opts.textAlign } : {}),
@@ -176,26 +173,27 @@ function mkSpacer(length) {
 }
 
 function mkRow(children, gap = 0, opts = {}) {
+  // 官方 DSL 只支持 alignItems，不支持 align；这里统一做一次映射
+  const { align, ...rest } = opts;
   return {
     type: "stack",
     direction: "row",
-    align: opts.align || "center",
-    alignItems: opts.align || "center",
+    alignItems: align || "center",
+    ...rest,
     gap,
-    children,
-    ...opts
+    children
   };
 }
 
 function mkCol(children, gap = 0, opts = {}) {
+  const { align, ...rest } = opts;
   return {
     type: "stack",
     direction: "column",
-    align: opts.align || "start",
-    alignItems: opts.align || "start",
+    alignItems: align || "start",
+    ...rest,
     gap,
-    children,
-    ...opts
+    children
   };
 }
 
@@ -208,7 +206,6 @@ function buildProgressBar(value, width, height, color) {
   return {
     type: "stack",
     direction: "row",
-    align: "center",
     alignItems: "center",
     width,
     height,
@@ -303,11 +300,11 @@ function buildSmallChildren(server) {
   return [
     mkRow(headChildren),
     mkSpacer(8),
-    buildBarRow("CPU", cpu, 72, 6),
+    buildBarRow("CPU", cpu, 60, 6),
     mkSpacer(5),
-    buildBarRow("RAM", ram, 72, 6),
+    buildBarRow("RAM", ram, 60, 6),
     mkSpacer(5),
-    buildBarRow("DSK", disk, 72, 6),
+    buildBarRow("DSK", disk, 60, 6),
     mkSpacer(),
     ...(online
       ? [
@@ -356,7 +353,7 @@ function buildMediumLargeChildren(server, isLarge) {
   if (server.traffic_limit) {
     children.push(
       mkSpacer(isLarge ? 13 : 10),
-      buildBarRow("TRF", traffic, isLarge ? 245 : 216, 7)
+      buildBarRow("TRF", traffic, isLarge ? 235 : 216, 7)
     );
   }
 
@@ -376,22 +373,23 @@ function buildLockScreenWidget(server) {
   const online = isOnline(server);
   const cpu = Math.round(clampPercent(server.cpu));
   const ram = Math.round(clampPercent(percent(server.ram_used, server.ram_total)));
+  // 锁屏 accessory 组件由系统统一着色（忽略背景色），这里一律不写死颜色，否则浅色壁纸下会糊成一片白
   return {
     type: "widget",
     children: [
       mkRow([
-        mkText(online ? "●" : "○", 10, "bold", online ? COL.green : COL.red),
+        mkText(online ? "●" : "○", 10, "bold", null),
         mkSpacer(4),
-        mkText(serverName(server), 13, "bold", COL.fg, { maxLines: 1 })
+        mkText(serverName(server), 13, "bold", null, { maxLines: 1 })
       ]),
       mkSpacer(2),
-      mkRow([mkText(`CPU ${cpu}%  |  RAM ${ram}%`, 11, "medium", COL.dim, { maxLines: 1 })]),
+      mkRow([mkText(`CPU ${cpu}%  |  RAM ${ram}%`, 11, "medium", null, { maxLines: 1 })]),
       mkRow([
         mkText(
           online ? `↓${formatBytes(server.net_in_speed)}/s ↑${formatBytes(server.net_out_speed)}/s` : "offline",
           10,
           "regular",
-          COL.dim2,
+          null,
           { maxLines: 1 }
         )
       ])
