@@ -23,15 +23,15 @@ env_schema:
     description: "在 Egern 本地填写你的 CF-Server-Monitor 域名（末尾无需斜杠）"
     default_value: "https://status.example.com"
   SERVER_1:
-    name: 🖥️ 槽位 1（默认组件）的服务器
+    name: 🖥️ 槽位 1（默认组件）
     description: "「CF Server Monitor」显示哪台：填名称（如 CloudCone）或 UUID；留空则按面板顺序取第 1 台"
     default_value: "CloudCone"
   SERVER_2:
-    name: 🧩 槽位 2 的服务器
+    name: 🖥️ 槽位 2
     description: "「CF 服务器 2」显示哪台：填名称或 UUID；留空则取第 2 台"
     default_value: ""
   SERVER_3:
-    name: 🧩 槽位 3 的服务器
+    name: 🖥️ 槽位 3
     description: "「CF 服务器 3」显示哪台：填名称或 UUID；留空则取第 3 台"
     default_value: ""
   PASSWORD:
